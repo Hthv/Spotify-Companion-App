@@ -24,6 +24,12 @@ enum Pref {
     static let artworkTrailing = "artworkTrailing"
     /// `TextSize`, default `.medium`.
     static let textSize = "textSize"
+    /// `BrowseCategory`, default `.forYou`.
+    static let browseCategory = "browseCategory"
+    /// Library: `LibraryFilter` (`.all`), `LibrarySort` (`.recents`), grid (true) or list.
+    static let libraryFilter = "libraryFilter"
+    static let librarySort = "librarySort"
+    static let libraryGrid = "libraryGrid"
 
     /// Every layout key, for "Reset".
     static let layoutKeys = [

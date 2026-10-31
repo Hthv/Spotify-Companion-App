@@ -5,6 +5,8 @@ import SwiftUI
 @Observable
 final class Router {
     var isAccountShown = false
+    /// A text field has focus, so bare-key shortcuts (Space, arrows) must leave keys alone.
+    var isTyping = false
 }
 
 /// Heart: adds the track to Liked Songs, or takes it out. Asks to connect first if needed.

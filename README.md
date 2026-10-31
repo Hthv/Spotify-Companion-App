@@ -13,7 +13,7 @@ Silicon and Intel.
 ## Install
 
 1. Download the zip, double-click it, and drag **Spotify Companion** into
-   Applications.
+   Applications. The folder also holds **HOW TO CONNECT SPOTIFY.pdf**.
 2. Open it. The app isn't notarized, so macOS warns that it can't verify it.
    Dismiss the warning, then go to System Settings › Privacy & Security and click
    **Open Anyway**. You only do this once per version.
@@ -46,8 +46,10 @@ the left or right; change the text size.
 
 ## Spotify account (optional)
 
-Liking songs, adding them to playlists and the recently played list on Home use
-Spotify's Web API, which needs a Client ID from your own developer app:
+Search, Home (For You, Library, Liked Songs, Artists, Recent), liking songs and
+adding them to playlists use Spotify's Web API, which needs a Client ID from your
+own developer app. [HOW TO CONNECT SPOTIFY.pdf](HOW%20TO%20CONNECT%20SPOTIFY.pdf)
+has step-by-step instructions for people you share the app with. In short:
 
 1. Create an app at <https://developer.spotify.com/dashboard>.
 2. Add the Redirect URI `http://127.0.0.1:43821/callback` and tick **Web API**.

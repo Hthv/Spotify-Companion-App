@@ -1,41 +1,126 @@
 import SwiftUI
 
-/// A greeting, what's playing, what played lately, and every style one click away.
-/// All of it set in the current style, so switching styles here shows the change at once.
+/// Browse: the categories down the side (Stage Manager style), search across the top, and
+/// below it the chosen category, search results, or a page opened from either.
 struct HomeView: View {
     @Binding var page: Page
 
     @Environment(SpotifyService.self) private var spotify
     @Environment(SpotifyAccount.self) private var account
+    @Environment(BrowseStore.self) private var browse
+    @Environment(SearchStore.self) private var search
+    @Environment(BrowseNavigation.self) private var navigation
+    @Environment(Router.self) private var router
     @Environment(\.theme) private var theme
+    @FocusState private var searchFocused: Bool
+    @State private var selection: Int?
+    @Namespace private var covers
+
+    private var showsSearch: Bool { search.isActive || searchFocused }
 
     var body: some View {
-        let style = theme.style
-        ScrollView(.vertical, showsIndicators: false) {
-            VStack(alignment: style.stackAlignment, spacing: Metrics.unit * 5) {
-                Greeting()
-                NowPlayingCard { withAnimation(style.motion) { page = .player } }
-                    .frame(maxWidth: style.composition == .centered ? 620 : .infinity)
-                HomeSection(title: "Recently played") {
-                    RecentSection()
+        HStack(spacing: 0) {
+            StageRail()
+            Rectangle().fill(theme.rule).frame(width: 1).padding(.vertical, Metrics.unit * 3)
+            VStack(spacing: 0) {
+                HStack(spacing: Metrics.unit * 1.5) {
+                    if !navigation.path.isEmpty {
+                        IconButton(systemName: "chevron.left", label: "Back (⌘[)", size: 16) {
+                            withAnimation(theme.style.motion) { navigation.back() }
+                        }
+                        .transition(.move(edge: .leading).combined(with: .opacity))
+                    }
+                    SearchBar(isFocused: $searchFocused, onKey: key)
                 }
-                HomeSection(title: "Styles") {
-                    StyleStrip()
+                .padding(.horizontal, Metrics.margin * 0.75)
+                .padding(.top, Metrics.unit * 2.5)
+                .padding(.bottom, Metrics.unit * 1.5)
+                .animation(theme.style.motion, value: navigation.path.isEmpty)
+                ScrollView(.vertical, showsIndicators: false) {
+                    main
+                        .padding(.horizontal, Metrics.margin * 0.75)
+                        .padding(.top, Metrics.unit * 2)
+                        .padding(.bottom, Metrics.margin)
+                        .frame(maxWidth: 1180, alignment: .leading)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
+                .scrollClipDisabled(false)
             }
-            .padding(.horizontal, Metrics.margin)
-            .padding(.vertical, Metrics.margin * 0.75)
-            .frame(maxWidth: 1180)
-            .frame(maxWidth: .infinity)
+        }
+        .onChange(of: navigation.focusSearch) { searchFocused = true }
+        .onChange(of: navigation.leaveSearch) { searchFocused = false }
+        .onChange(of: searchFocused) { _, focused in router.isTyping = focused }
+        .onChange(of: search.resultQuery) { selection = nil }
+        .onChange(of: search.scope) { selection = nil }
+        .task(id: account.isSignedIn) {
+            if account.isSignedIn {
+                browse.load(.library)
+                browse.load(.top)
+                account.loadPlaylists()
+            } else {
+                browse.reset()
+            }
         }
         .task(id: spotify.track?.id) {
             // What's "recent" changes as songs finish.
             if account.isSignedIn { await account.loadRecent() }
         }
     }
+
+    @ViewBuilder
+    private var main: some View {
+        ZStack(alignment: .topLeading) {
+            if let item = navigation.path.last {
+                DetailPage(item: item, namespace: covers)
+                    .id(item.uri)
+                    .transition(.asymmetric(
+                        insertion: .opacity.combined(with: .offset(x: 40)),
+                        removal: .opacity
+                    ))
+            } else if showsSearch {
+                SearchPanel(selection: $selection, namespace: covers)
+                    .transition(.opacity.combined(with: .offset(y: 12)))
+            } else {
+                CategoryView(category: navigation.category, namespace: covers) {
+                    withAnimation(theme.style.motion) { page = .player }
+                }
+                .id(navigation.category)
+                .transition(.asymmetric(
+                    insertion: .opacity.combined(with: .offset(y: 18)).combined(with: .scale(scale: 0.985, anchor: .top)),
+                    removal: .opacity
+                ))
+            }
+        }
+        .animation(theme.style.motion, value: navigation.path.last?.uri)
+        .animation(theme.style.motion, value: showsSearch)
+        .animation(theme.style.motion, value: navigation.category)
+    }
+
+    /// Arrow keys move through results; Return plays a song or opens anything else.
+    private func key(_ key: SearchKey) -> KeyPress.Result {
+        let flat = SearchPanel.flat(search)
+        guard search.isActive, !flat.isEmpty else { return .ignored }
+        withAnimation(.spring(duration: 0.3, bounce: 0.2)) {
+            switch key {
+            case .down: selection = min((selection ?? -1) + 1, flat.count - 1)
+            case .up: selection = (selection ?? 0) > 0 ? (selection ?? 0) - 1 : nil
+            case .open: break
+            }
+        }
+        guard key == .open else { return .handled }
+        guard let index = selection, flat.indices.contains(index) else { return .ignored }
+        let item = flat[index]
+        search.commit()
+        if item.kind == .track {
+            spotify.play(uri: item.uri, in: item.albumURI)
+        } else {
+            withAnimation(theme.style.motion) { navigation.open(item) }
+        }
+        return .handled
+    }
 }
 
-private struct Greeting: View {
+struct Greeting: View {
     @Environment(\.theme) private var theme
 
     var body: some View {
@@ -86,24 +171,9 @@ private struct Greeting: View {
     }
 }
 
-private struct HomeSection<Content: View>: View {
-    let title: String
-    @ViewBuilder let content: Content
-
-    @Environment(\.theme) private var theme
-
-    var body: some View {
-        VStack(alignment: theme.style.stackAlignment, spacing: Metrics.unit * 2) {
-            Text(title).styledLabel()
-            content
-        }
-        .frame(maxWidth: .infinity, alignment: theme.style.frameAlignment)
-    }
-}
-
 // MARK: Now playing
 
-private struct NowPlayingCard: View {
+struct NowPlayingCard: View {
     let openPlayer: () -> Void
 
     @Environment(SpotifyService.self) private var spotify
@@ -200,7 +270,10 @@ private struct MiniProgress: View {
 
 // MARK: Recently played
 
-private struct RecentSection: View {
+/// Recently played songs: a short row on For You, every one of them under Recent.
+struct RecentSection: View {
+    var compact = false
+
     @Environment(SpotifyAccount.self) private var account
     @Environment(Router.self) private var router
     @Environment(\.theme) private var theme
@@ -227,9 +300,21 @@ private struct RecentSection: View {
                 .font(theme.font(\.body, 14))
                 .foregroundStyle(theme.secondary)
         } else {
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 128, maximum: 180), spacing: Metrics.unit * 2.5)], spacing: Metrics.unit * 3) {
-                ForEach(account.recent) { track in
-                    RecentTile(track: track)
+            if compact {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    LazyHStack(spacing: Metrics.unit * 2) {
+                        ForEach(Array(account.recent.enumerated()), id: \.element.id) { index, track in
+                            RecentTile(track: track).frame(width: 112).staggered(index)
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
+                .scrollClipDisabled()
+            } else {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 128, maximum: 180), spacing: Metrics.unit * 2.5)], spacing: Metrics.unit * 3) {
+                    ForEach(Array(account.recent.enumerated()), id: \.element.id) { index, track in
+                        RecentTile(track: track).staggered(index)
+                    }
                 }
             }
         }
@@ -291,7 +376,7 @@ private struct RecentTile: View {
 // MARK: Styles
 
 /// One card per style, in its own type and colors. Click to switch the whole window.
-private struct StyleStrip: View {
+struct StyleStrip: View {
     @Environment(Appearance.self) private var appearance
     @Environment(ArtworkStore.self) private var artwork
     @Environment(\.theme) private var theme

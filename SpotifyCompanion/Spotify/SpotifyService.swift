@@ -281,12 +281,22 @@ final class SpotifyService {
         send("set repeating to \(isRepeating)")
     }
 
-    /// Starts a track by URI, e.g. from the recently played list.
-    func play(uri: String) {
-        // The URI goes into AppleScript source, so only let through what a Spotify URI can contain.
-        guard uri.hasPrefix("spotify:"), uri.allSatisfy({ $0.isASCII && ($0.isLetter || $0.isNumber || $0 == ":") }) else { return }
+    /// Starts a song, album, playlist or artist by URI. A song with a `context` (its album or
+    /// playlist) plays on through the rest of it.
+    func play(uri: String, in context: String? = nil) {
+        guard Self.isSafeURI(uri) else { return }
         expect { $0.state = .playing }
-        send("play track \"\(uri)\"")
+        if let context, Self.isSafeURI(context) {
+            send("play track \"\(uri)\" in context \"\(context)\"")
+        } else {
+            send("play track \"\(uri)\"")
+        }
+    }
+
+    /// URIs go into AppleScript source, so only let through what a Spotify URI can contain
+    /// (user IDs in `spotify:user:…:collection` may also have dots, dashes and underscores).
+    private static func isSafeURI(_ uri: String) -> Bool {
+        uri.hasPrefix("spotify:") && uri.allSatisfy { $0.isASCII && ($0.isLetter || $0.isNumber || ":._-".contains($0)) }
     }
 
     private func send(_ command: String) {

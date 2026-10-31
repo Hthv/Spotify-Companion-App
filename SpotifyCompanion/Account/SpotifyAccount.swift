@@ -47,6 +47,8 @@ final class SpotifyAccount {
         "playlist-read-private", "playlist-read-collaborative",
         "playlist-modify-public", "playlist-modify-private",
         "user-read-recently-played",
+        // Home's Artists and For You categories.
+        "user-follow-read", "user-top-read",
     ]
     private static let clientIDKey = "spotifyClientID"
 
@@ -65,8 +67,8 @@ final class SpotifyAccount {
 
     var isSignedIn: Bool { if case .signedIn = status { true } else { false } }
 
-    @ObservationIgnored private var api: SpotifyWebAPI?
-    @ObservationIgnored private var userID: String?
+    @ObservationIgnored private(set) var api: SpotifyWebAPI?
+    @ObservationIgnored private(set) var userID: String?
     @ObservationIgnored private var signInTask: Task<Void, Never>?
     @ObservationIgnored private var noticeTask: Task<Void, Never>?
     @ObservationIgnored private var playlistsLoadedAt = Date.distantPast

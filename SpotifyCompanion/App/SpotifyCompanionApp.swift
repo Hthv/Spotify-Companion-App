@@ -6,8 +6,19 @@ struct SpotifyCompanionApp: App {
     @State private var spotify = SpotifyService()
     @State private var artwork = ArtworkStore()
     @State private var lyrics = LyricsStore()
-    @State private var account = SpotifyAccount()
+    @State private var account: SpotifyAccount
     @State private var appearance = Appearance()
+    @State private var router = Router()
+    @State private var navigation = BrowseNavigation()
+    @State private var browse: BrowseStore
+    @State private var search: SearchStore
+
+    init() {
+        let account = SpotifyAccount()
+        _account = State(initialValue: account)
+        _browse = State(initialValue: BrowseStore(account: account))
+        _search = State(initialValue: SearchStore(account: account))
+    }
 
     var body: some Scene {
         Window("Spotify Companion", id: "main") {
@@ -17,14 +28,18 @@ struct SpotifyCompanionApp: App {
                 .environment(lyrics)
                 .environment(account)
                 .environment(appearance)
+                .environment(router)
+                .environment(navigation)
+                .environment(browse)
+                .environment(search)
                 .frame(minWidth: 820, minHeight: 520)
         }
         .windowStyle(.hiddenTitleBar)
         .windowResizability(.contentMinSize)
         .defaultSize(width: 1000, height: 640)
         .commands {
-            PlaybackCommands(spotify: spotify, account: account)
-            ViewCommands(appearance: appearance)
+            PlaybackCommands(spotify: spotify, account: account, router: router)
+            ViewCommands(appearance: appearance, navigation: navigation)
         }
     }
 }
@@ -33,25 +48,35 @@ struct SpotifyCompanionApp: App {
 private struct PlaybackCommands: Commands {
     let spotify: SpotifyService
     let account: SpotifyAccount
+    let router: Router
 
     var body: some Commands {
         CommandMenu("Playback") {
+            // While typing, these keys move the cursor or type a space instead; a disabled item
+            // lets the key through to the field.
             Button(spotify.isPlaying ? "Pause" : "Play") { spotify.playPause() }
                 .keyboardShortcut(.space, modifiers: [])
+                .disabled(router.isTyping)
             Button("Next") { spotify.nextTrack() }
                 .keyboardShortcut(.rightArrow, modifiers: .command)
+                .disabled(router.isTyping)
             Button("Previous") { spotify.previousTrack() }
                 .keyboardShortcut(.leftArrow, modifiers: .command)
+                .disabled(router.isTyping)
             Divider()
             Button("Forward 10 Seconds") { spotify.seek(by: 10) }
                 .keyboardShortcut(.rightArrow, modifiers: .shift)
+                .disabled(router.isTyping)
             Button("Back 10 Seconds") { spotify.seek(by: -10) }
                 .keyboardShortcut(.leftArrow, modifiers: .shift)
+                .disabled(router.isTyping)
             Divider()
             Button("Volume Up") { spotify.changeVolume(by: 10) }
                 .keyboardShortcut(.upArrow, modifiers: .command)
+                .disabled(router.isTyping)
             Button("Volume Down") { spotify.changeVolume(by: -10) }
                 .keyboardShortcut(.downArrow, modifiers: .command)
+                .disabled(router.isTyping)
             Button(spotify.volume == 0 ? "Unmute" : "Mute") { spotify.toggleMute() }
                 .keyboardShortcut(.downArrow, modifiers: [.command, .option])
             Divider()
@@ -72,6 +97,7 @@ private struct PlaybackCommands: Commands {
 
 private struct ViewCommands: Commands {
     let appearance: Appearance
+    let navigation: BrowseNavigation
     @AppStorage(Pref.page) private var page: Page = .home
     @AppStorage(Pref.showLyrics) private var showLyrics = false
     @AppStorage(Pref.showArtwork) private var showArtwork = true
@@ -82,6 +108,14 @@ private struct ViewCommands: Commands {
                 .keyboardShortcut("h", modifiers: [.command, .shift])
             Button("Player") { withAnimation(appearance.styleID.style.motion) { page = .player } }
                 .keyboardShortcut("p", modifiers: [.command, .shift])
+            Button("Search") {
+                withAnimation(appearance.styleID.style.motion) { page = .home }
+                navigation.focusSearch += 1
+            }
+            .keyboardShortcut("f", modifiers: .command)
+            Button("Back") { withAnimation(appearance.styleID.style.motion) { navigation.back() } }
+                .keyboardShortcut("[", modifiers: .command)
+                .disabled(navigation.path.isEmpty || page != .home)
             Divider()
             Button(showLyrics ? "Hide Lyrics" : "Show Lyrics") {
                 withAnimation(appearance.styleID.style.motion) { showLyrics.toggle() }

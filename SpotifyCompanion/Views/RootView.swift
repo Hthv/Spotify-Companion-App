@@ -14,7 +14,7 @@ struct RootView: View {
     @AppStorage(Pref.showLyrics) private var showLyrics = false
     @AppStorage(Pref.textSize) private var textSize: TextSize = .medium
     @AppStorage(Pref.ambientMotion) private var ambientMotion = true
-    @State private var router = Router()
+    @Environment(Router.self) private var router
 
     private var theme: Theme {
         var theme = appearance.theme(palette: artwork.palette)
@@ -40,6 +40,7 @@ struct RootView: View {
 
     var body: some View {
         let theme = theme
+        @Bindable var router = router
         VStack(spacing: 0) {
             HeaderBar(page: $page)
             Rule()
@@ -121,6 +122,7 @@ struct RootView: View {
         .environment(LyricsStore.preview())
         .environment(SpotifyAccount.preview())
         .environment(Appearance())
+        .browsePreviews()
         .frame(width: 980, height: 640)
 }
 
@@ -131,6 +133,7 @@ struct RootView: View {
         .environment(LyricsStore())
         .environment(SpotifyAccount.preview(signedIn: false))
         .environment(Appearance())
+        .browsePreviews(signedIn: false)
         .frame(width: 980, height: 640)
 }
 #endif

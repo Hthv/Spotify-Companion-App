@@ -181,13 +181,22 @@ struct ControlFace: View {
         .contentShape(Rectangle())
     }
 
+    /// Both symbols stay in the tree and cross-fade. A `.symbolEffect(.replace)` content
+    /// transition here could stick on the old symbol in the app window.
     private func glyph(_ color: Color, outline: Bool = false) -> some View {
-        Image(systemName: isPlaying ? (outline ? "pause" : "pause.fill") : (outline ? "play" : "play.fill"))
-            .font(.system(size: diameter * 0.37, weight: outline ? .light : .bold))
-            .foregroundStyle(color)
-            .contentTransition(.symbolEffect(.replace))
-            // The play triangle's visual center sits left of its bounds.
-            .offset(x: isPlaying ? 0 : diameter * 0.04)
+        ZStack {
+            Image(systemName: outline ? "pause" : "pause.fill")
+                .opacity(isPlaying ? 1 : 0)
+                .scaleEffect(isPlaying ? 1 : 0.5)
+            Image(systemName: outline ? "play" : "play.fill")
+                // The play triangle's visual center sits left of its bounds.
+                .offset(x: diameter * 0.04)
+                .opacity(isPlaying ? 0 : 1)
+                .scaleEffect(isPlaying ? 0.5 : 1)
+        }
+        .font(.system(size: diameter * 0.37, weight: outline ? .light : .bold))
+        .foregroundStyle(color)
+        .animation(.smooth(duration: 0.25), value: isPlaying)
     }
 }
 

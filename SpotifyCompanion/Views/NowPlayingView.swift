@@ -50,6 +50,9 @@ struct NowPlayingView: View {
     private func splitLayout(_ size: CGSize) -> some View {
         let side = max(0, min(size.height, size.width * 0.46))
         let titleSize = showArtwork ? min(max(side * 0.12, 30), 60) : min(max(size.height * 0.13, 40), 92)
+        // One row of controls needs about 440 pt; any narrower and it would push the column
+        // (and the progress bar) past the window edge, so the controls take two rows instead.
+        let column = showArtwork ? size.width - side - Metrics.gutter : size.width
         return HStack(alignment: .top, spacing: Metrics.gutter) {
             if showArtwork && !artworkTrailing { coverWithNote(side) }
             VStack(alignment: .leading, spacing: 0) {
@@ -63,10 +66,10 @@ struct NowPlayingView: View {
                 title(size: titleSize, compact: false)
                 Spacer(minLength: Metrics.unit * 2)
                 progress
-                TransportControls(layout: .wide, track: track)
+                TransportControls(layout: column < 440 ? .stacked : .wide, track: track)
                     .padding(.top, Metrics.unit * 2)
             }
-            .frame(height: showArtwork ? side : size.height)
+            .frame(width: max(column, 0), height: showArtwork ? side : size.height)
             if showArtwork && artworkTrailing { coverWithNote(side) }
         }
         .frame(maxHeight: .infinity)
